@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"log"
+	"regexp"
 )
 
 var phones = []string{
@@ -35,6 +37,39 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	_, err = db.Exec("DELETE FROM phone_numbers")
+	if err != nil {
+		log.Fatalf("Failed to truncate table: %v", err)
+	}
 
-	fmt.Println("Table created successfully!")
+	stm, err := db.Prepare("INSERT INTO phone_numbers(phone) VALUES (?)")
+	defer stm.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	formatedPhone := regexp.MustCompile(`[-\s()]`)
+	for _, phone := range phones {
+		phone := formatedPhone.ReplaceAllString(phone, "")
+		_, err := stm.Exec(phone)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+
+	rows, err := db.Query("SELECT phone from phone_numbers")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+	var listPhone []string
+	for rows.Next() {
+		var phone string
+		err = rows.Scan(&phone)
+		fmt.Println(phone)
+		if err != nil {
+			log.Fatal(err)
+		}
+		listPhone = append(listPhone, phone)
+	}
+
 }
